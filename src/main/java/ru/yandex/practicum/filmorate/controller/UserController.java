@@ -9,6 +9,7 @@ import ru.yandex.practicum.filmorate.validator.UserValidator;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @Slf4j
 @RestController
@@ -42,7 +43,7 @@ public class UserController {
     @PutMapping
     public User updateUser(@RequestBody User updatedUser) {
         try {
-            if (updatedUser.getId() == null) {
+            if (Objects.isNull(updatedUser.getId())) {
                 throw new ValidationException("Поле id не может быть пустым.");
             }
             if (!users.containsKey(updatedUser.getId())) {

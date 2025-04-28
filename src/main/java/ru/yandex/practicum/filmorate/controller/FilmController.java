@@ -9,6 +9,7 @@ import ru.yandex.practicum.filmorate.validator.FilmValidator;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @Slf4j
 @RestController
@@ -41,7 +42,7 @@ public class FilmController {
     @PutMapping
     public Film updateFilm(@RequestBody Film updatedFilm) {
         try {
-            if (updatedFilm.getId() == null) {
+            if (Objects.isNull(updatedFilm.getId())) {
                 throw new ValidationException("Поле id не может быть пустым.");
             }
 
