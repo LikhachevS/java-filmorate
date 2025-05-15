@@ -1,76 +1,55 @@
 package ru.yandex.practicum.filmorate.controller;
 
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
-import ru.yandex.practicum.filmorate.validator.UserValidator;
+import ru.yandex.practicum.filmorate.service.UserService;
 
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
 
-@Slf4j
 @RestController
 @RequestMapping("/users")
 public class UserController {
 
-    private final Map<Integer, User> users = new HashMap<>();
+    private final UserService userService;
 
-    private Integer nextId = 1;
+    @Autowired
+    public UserController(UserService userService) {
+        this.userService = userService;
+    }
 
     @GetMapping
     public Collection<User> getAllUsers() {
-        return users.values();
+        return userService.getAllUsers();
     }
 
     @PostMapping
     public User createUser(@RequestBody User user) {
-        try {
-            UserValidator.validate(user);
-
-            user.setId(nextId++);
-            users.put(user.getId(), user);
-            log.info("Пользователь успешно создан: {}", user.getLogin());
-            return user;
-        } catch (ValidationException e) {
-            log.error("Ошибка при создании пользователя: {}", e.getMessage());
-            throw e;
-        }
+        return userService.createUser(user);
     }
 
     @PutMapping
     public User updateUser(@RequestBody User updatedUser) {
-        try {
-            if (Objects.isNull(updatedUser.getId())) {
-                throw new ValidationException("Поле id не может быть пустым.");
-            }
-            if (!users.containsKey(updatedUser.getId())) {
-                throw new ValidationException("Пользователь с указанным id не найден.");
-            }
+        return userService.updateUser(updatedUser);
+    }
 
-            User originalUser = users.get(updatedUser.getId());
+    @PutMapping("/{id}/friends/{friendId}")
+    public void addFriend(@PathVariable Integer id, @PathVariable Integer friendId) {
+        userService.addFriend(id, friendId);
+    }
 
-            User tempUser = new User();
-            tempUser.setId(updatedUser.getId());
-            tempUser.setEmail((updatedUser.getEmail() != null) ? updatedUser.getEmail() : originalUser.getEmail());
-            tempUser.setLogin((updatedUser.getLogin() != null) ? updatedUser.getLogin() : originalUser.getLogin());
-            tempUser.setName((updatedUser.getName() != null) ? updatedUser.getName() : originalUser.getName());
-            tempUser.setBirthday((updatedUser.getBirthday() != null) ? updatedUser.getBirthday() : originalUser.getBirthday());
+    @DeleteMapping("/{id}/friends/{friendId}")
+    public void removeFriend(@PathVariable Integer id, @PathVariable Integer friendId) {
+        userService.removeFriend(id, friendId);
+    }
 
-            UserValidator.validate(tempUser);
+    @GetMapping("/{id}/friends")
+    public Collection<User> getFriends(@PathVariable Integer id) {
+        return userService.getFriends(id);
+    }
 
-            originalUser.setEmail(tempUser.getEmail());
-            originalUser.setLogin(tempUser.getLogin());
-            originalUser.setName(tempUser.getName());
-            originalUser.setBirthday(tempUser.getBirthday());
-
-            log.info("Пользователь успешно обновлён: {}", originalUser.getLogin());
-            return originalUser;
-        } catch (ValidationException e) {
-            log.error("Ошибка при обновлении пользователя: {}", e.getMessage());
-            throw e;
-        }
+    @GetMapping("/{id}/friends/common/{otherId}")
+    public Collection<User> getCommonFriends(@PathVariable Integer id, @PathVariable Integer otherId) {
+        return userService.getCommonFriends(id, otherId);
     }
 }
