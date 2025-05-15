@@ -77,12 +77,12 @@ public class UserService {
         try {
             User user = userStorage.getUserById(id);
 
-            Set<Integer> FriendIds = new HashSet<>(user.getFriends());
-            Set<User> Friends = new HashSet<>();
-            for (Integer friendId : FriendIds) {
-                Friends.add(userStorage.getUserById(friendId));
+            Set<Integer> friendIds = new HashSet<>(user.getFriends());
+            Set<User> friends = new HashSet<>();
+            for (Integer friendId : friendIds) {
+                friends.add(userStorage.getUserById(friendId));
             }
-            return Friends;
+            return friends;
         } catch (NotFoundException e) {
             log.error("Ошибка при получении списка друзей: {}", e.getMessage());
             throw e;
