@@ -3,6 +3,8 @@ Template repository for Filmorate project.
 
 #Схема базы данных учебного проекта java_filmorate
 
+![erd](https://github.com/LikhachevS/java-filmorate/blob/add-database/filmorate_erd.PNG)
+
 На основе предоставленной схемы базы данных можно составить несколько основных запросов, которые позволят выполнять различные операции с данными. Вот примеры таких запросов:
 
 ##1. Получение списка всех фильмов
