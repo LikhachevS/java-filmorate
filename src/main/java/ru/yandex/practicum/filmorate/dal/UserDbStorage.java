@@ -85,8 +85,8 @@ public class UserDbStorage implements UserStorage {
 
             UserValidator.validate(tempUser);
 
-            jdbcTemplate.update(UPDATE_QUERY, tempUser.getEmail(), tempUser.getLogin(), tempUser.getName()
-                    , tempUser.getBirthday(), tempUser.getId());
+            jdbcTemplate.update(UPDATE_QUERY, tempUser.getEmail(), tempUser.getLogin(), tempUser.getName(),
+                    tempUser.getBirthday(), tempUser.getId());
 
             log.info("Пользователь успешно обновлён: {}", tempUser.getLogin());
             return tempUser;
