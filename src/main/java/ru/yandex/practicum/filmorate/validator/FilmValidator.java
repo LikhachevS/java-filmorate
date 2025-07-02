@@ -1,7 +1,9 @@
 package ru.yandex.practicum.filmorate.validator;
 
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
+import ru.yandex.practicum.filmorate.model.Genre;
 
 import java.time.LocalDate;
 
@@ -22,6 +24,18 @@ public class FilmValidator {
 
         if (film.getDuration() < 0) {
             throw new ValidationException("Продолжительность фильма должна быть положительной.");
+        }
+
+        if (film.getMpa().getId() > 5) {
+            throw new NotFoundException("Такого рейтинга нет.");
+        }
+
+        if (film.getGenres() != null) {
+            for (Genre genre : film.getGenres()) {
+                if (genre.getId() > 6) {
+                    throw new NotFoundException("Такого жанра нет.");
+                }
+            }
         }
     }
 }
