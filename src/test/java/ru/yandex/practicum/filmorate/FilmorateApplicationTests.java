@@ -31,9 +31,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @JdbcTest
 @AutoConfigureTestDatabase
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
-@Import({FilmDbStorage.class, FilmRowMapper.class, UserDbStorage.class, UserRowMapper.class
-        , MpaDbStorage.class, MpaRowMapper.class, GenreDbStorage.class, GenreRowMapper.class})
-class FilmoRateApplicationTests {
+@Import({FilmDbStorage.class, FilmRowMapper.class, UserDbStorage.class, UserRowMapper.class,
+        MpaDbStorage.class, MpaRowMapper.class, GenreDbStorage.class, GenreRowMapper.class})
+class FilmorateApplicationTests {
 
     @Autowired
     private FilmDbStorage filmStorage;
