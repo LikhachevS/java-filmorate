@@ -104,8 +104,8 @@ public class FilmDbStorage implements FilmStorage {
 
             String sql = "UPDATE films SET name = ?, description = ?, release_date = ?, duration = ?, mpa_id = ? "
                     + "WHERE film_id = ?";
-            jdbcTemplate.update(sql, tempFilm.getName(), tempFilm.getDescription(), tempFilm.getReleaseDate()
-                    , tempFilm.getDuration(), ((tempFilm.getMpa() != null) ? tempFilm.getMpa().getId() : null), tempFilm.getId());
+            jdbcTemplate.update(sql, tempFilm.getName(), tempFilm.getDescription(), tempFilm.getReleaseDate(),
+                    tempFilm.getDuration(), ((tempFilm.getMpa() != null) ? tempFilm.getMpa().getId() : null), tempFilm.getId());
 
             jdbcTemplate.update("DELETE FROM film_genre WHERE film_id = ?", tempFilm.getId());
             if (tempFilm.getGenres() != null && !tempFilm.getGenres().isEmpty()) {
