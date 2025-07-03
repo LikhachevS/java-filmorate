@@ -1,10 +1,11 @@
 package ru.yandex.practicum.filmorate.dal;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Primary;
 import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
@@ -15,26 +16,22 @@ import ru.yandex.practicum.filmorate.storage.UserStorage;
 import ru.yandex.practicum.filmorate.validator.UserValidator;
 import lombok.extern.slf4j.Slf4j;
 
-import java.sql.PreparedStatement;
 import java.util.*;
 
 @Slf4j
 @Repository
 @Primary
+@RequiredArgsConstructor
 public class UserDbStorage implements UserStorage {
     private static final String FIND_ALL_QUERY = "SELECT * FROM users";
-    private static final String FIND_BY_ID_QUERY = "SELECT * FROM users WHERE user_id = ?";
-    private static final String INSERT_QUERY = "INSERT INTO users (email, login, name, birthday) VALUES (?, ?, ?, ?)";
-    private static final String UPDATE_QUERY = "UPDATE users SET email = ?, login = ?, name = ?, birthday = ? WHERE user_id = ?";
+    private static final String FIND_BY_ID_QUERY = "SELECT * FROM users WHERE user_id = :user_id";
+    private static final String INSERT_QUERY = "INSERT INTO users (email, login, name, birthday) " +
+            "VALUES (:email, :login, :name, :birthday)";
+    private static final String UPDATE_QUERY = "UPDATE users SET email = :email, login = :login, name = :name, " +
+            "birthday = :birthday WHERE user_id = :user_id";
 
-    private final JdbcTemplate jdbcTemplate;
+    private final NamedParameterJdbcTemplate jdbcTemplate;
     protected final RowMapper<User> mapper;
-
-    @Autowired
-    public UserDbStorage(JdbcTemplate jdbcTemplate, RowMapper<User> mapper) {
-        this.jdbcTemplate = jdbcTemplate;
-        this.mapper = mapper;
-    }
 
     @Override
     public Collection<User> getAllUsers() {
@@ -48,14 +45,13 @@ public class UserDbStorage implements UserStorage {
 
             KeyHolder keyHolder = new GeneratedKeyHolder();
 
-            jdbcTemplate.update(connection -> {
-                PreparedStatement ps = connection.prepareStatement(INSERT_QUERY, new String[]{"user_id"});
-                ps.setString(1, user.getEmail());
-                ps.setString(2, user.getLogin());
-                ps.setString(3, user.getName());
-                ps.setDate(4, java.sql.Date.valueOf(user.getBirthday()));
-                return ps;
-            }, keyHolder);
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("email", user.getEmail())
+                    .addValue("login", user.getLogin())
+                    .addValue("name", user.getName())
+                    .addValue("birthday", user.getBirthday());
+
+            jdbcTemplate.update(INSERT_QUERY, params, keyHolder);
 
             int userId = keyHolder.getKey().intValue();
             user.setId(userId);
@@ -85,8 +81,14 @@ public class UserDbStorage implements UserStorage {
 
             UserValidator.validate(tempUser);
 
-            jdbcTemplate.update(UPDATE_QUERY, tempUser.getEmail(), tempUser.getLogin(), tempUser.getName(),
-                    tempUser.getBirthday(), tempUser.getId());
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("email", tempUser.getEmail())
+                    .addValue("login", tempUser.getLogin())
+                    .addValue("name", tempUser.getName())
+                    .addValue("birthday", tempUser.getBirthday())
+                    .addValue("user_id", tempUser.getId());
+
+            jdbcTemplate.update(UPDATE_QUERY, params);
 
             log.info("Пользователь успешно обновлён: {}", tempUser.getLogin());
             return tempUser;
@@ -99,7 +101,10 @@ public class UserDbStorage implements UserStorage {
     @Override
     public User getUserById(Integer id) {
         try {
-            return jdbcTemplate.queryForObject(FIND_BY_ID_QUERY, mapper, id);
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("user_id", id);
+
+            return jdbcTemplate.queryForObject(FIND_BY_ID_QUERY, params, mapper);
         } catch (EmptyResultDataAccessException ignored) {
             throw new NotFoundException("Пользователь с id = " + id + " не найден.");
         }
@@ -110,8 +115,11 @@ public class UserDbStorage implements UserStorage {
         try {
             getUserById(userId);
             getUserById(friendId);
-            String sql = "INSERT INTO friendship (user_id, friend_id) VALUES (?, ?)";
-            jdbcTemplate.update(sql, userId, friendId);
+            String sql = "INSERT INTO friendship (user_id, friend_id) VALUES (:user_id, :friend_id)";
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("user_id", userId)
+                    .addValue("friend_id", friendId);
+            jdbcTemplate.update(sql, params);
             log.info("Пользователь {} добавил в друзья пользователя {}", userId, friendId);
         } catch (NotFoundException e) {
             log.error("Ошибка при добавлении в друзья: {}", e.getMessage());
@@ -124,8 +132,11 @@ public class UserDbStorage implements UserStorage {
         try {
             getUserById(userId);
             getUserById(friendId);
-            String sql = "DELETE FROM friendship WHERE user_id = ? AND friend_id = ?";
-            jdbcTemplate.update(sql, userId, friendId);
+            String sql = "DELETE FROM friendship WHERE user_id = :user_id AND friend_id = :friend_id";
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("user_id", userId)
+                    .addValue("friend_id", friendId);
+            jdbcTemplate.update(sql, params);
             log.info("Пользователь {} удалил из друзей пользователя {}", userId, friendId);
         } catch (NotFoundException e) {
             log.error("Ошибка при удалении из друзей: {}", e.getMessage());
@@ -152,8 +163,10 @@ public class UserDbStorage implements UserStorage {
     public Set<User> getFriends(Integer userId) {
         try {
             getUserById(userId);
-            String sql = "SELECT friend_id FROM friendship WHERE user_id = ?";
-            List<Integer> friendIds = jdbcTemplate.queryForList(sql, Integer.class, userId);
+            String sql = "SELECT friend_id FROM friendship WHERE user_id = :user_id";
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("user_id", userId);
+            List<Integer> friendIds = jdbcTemplate.queryForList(sql, params, Integer.class);
 
             Set<User> friends = new HashSet<>();
             for (Integer friendId : friendIds) {

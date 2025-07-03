@@ -1,11 +1,12 @@
 package ru.yandex.practicum.filmorate.dal;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
 import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
@@ -16,22 +17,16 @@ import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.storage.FilmStorage;
 import ru.yandex.practicum.filmorate.validator.FilmValidator;
 
-import java.sql.PreparedStatement;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Repository
 @Primary
+@RequiredArgsConstructor
 public class FilmDbStorage implements FilmStorage {
-    private final JdbcTemplate jdbcTemplate;
+    private final NamedParameterJdbcTemplate jdbcTemplate;
     protected final RowMapper<Film> mapper;
-
-    @Autowired
-    public FilmDbStorage(JdbcTemplate jdbcTemplate, RowMapper<Film> mapper) {
-        this.jdbcTemplate = jdbcTemplate;
-        this.mapper = mapper;
-    }
 
     @Override
     public Collection<Film> getAllFilms() {
@@ -49,18 +44,19 @@ public class FilmDbStorage implements FilmStorage {
         try {
             FilmValidator.validate(film);
 
-            String sql = "INSERT INTO films (name, description, release_date, duration, mpa_id) " + "VALUES (?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO films (name, description, release_date, duration, mpa_id) " +
+                    "VALUES (:name, :description, :release_date, :duration, :mpa_id)";
+
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("name", film.getName())
+                    .addValue("description", film.getDescription())
+                    .addValue("release_date", film.getReleaseDate())
+                    .addValue("duration", film.getDuration())
+                    .addValue("mpa_id", film.getMpa().getId());
+
 
             KeyHolder keyHolder = new GeneratedKeyHolder();
-            jdbcTemplate.update(connection -> {
-                PreparedStatement ps = connection.prepareStatement(sql, new String[]{"film_id"});
-                ps.setString(1, film.getName());
-                ps.setString(2, film.getDescription());
-                ps.setDate(3, java.sql.Date.valueOf(film.getReleaseDate()));
-                ps.setInt(4, film.getDuration());
-                ps.setInt(5, film.getMpa().getId());
-                return ps;
-            }, keyHolder);
+            jdbcTemplate.update(sql, params, keyHolder);
 
             int filmId = keyHolder.getKey().intValue();
             film.setId(filmId);
@@ -102,12 +98,21 @@ public class FilmDbStorage implements FilmStorage {
 
             FilmValidator.validate(tempFilm);
 
-            String sql = "UPDATE films SET name = ?, description = ?, release_date = ?, duration = ?, mpa_id = ? "
-                    + "WHERE film_id = ?";
-            jdbcTemplate.update(sql, tempFilm.getName(), tempFilm.getDescription(), tempFilm.getReleaseDate(),
-                    tempFilm.getDuration(), ((tempFilm.getMpa() != null) ? tempFilm.getMpa().getId() : null), tempFilm.getId());
+            String sql = "UPDATE films SET name = :name, description = :description, release_date = :release_date, duration = :duration, mpa_id = :mpa_id "
+                    + "WHERE film_id = :film_id";
 
-            jdbcTemplate.update("DELETE FROM film_genre WHERE film_id = ?", tempFilm.getId());
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("name", tempFilm.getName())
+                    .addValue("description", tempFilm.getDescription())
+                    .addValue("release_date", tempFilm.getReleaseDate())
+                    .addValue("duration", tempFilm.getDuration())
+                    .addValue("mpa_id", (tempFilm.getMpa() != null) ? tempFilm.getMpa().getId() : null)
+                    .addValue("film_id", tempFilm.getId());
+
+            jdbcTemplate.update(sql, params);
+
+            jdbcTemplate.update("DELETE FROM film_genre WHERE film_id = :film_id",
+                    new MapSqlParameterSource("film_id", tempFilm.getId()));
             if (tempFilm.getGenres() != null && !tempFilm.getGenres().isEmpty()) {
                 updateFilmGenres(tempFilm);
             }
@@ -123,8 +128,10 @@ public class FilmDbStorage implements FilmStorage {
     @Override
     public Film getFilmById(Integer id) {
         try {
-            String sql = "SELECT * FROM films WHERE film_id = ?";
-            Film film = jdbcTemplate.queryForObject(sql, mapper, id);
+            String sql = "SELECT * FROM films WHERE film_id = :film_id";
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("film_id", id);
+            Film film = jdbcTemplate.queryForObject(sql, params, mapper);
 
             assert film != null;
             loadFilmGenres(film);
@@ -138,27 +145,38 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public void addLike(int filmId, int userId) {
-        String sql = "INSERT INTO likes (film_id, user_id) VALUES (?, ?)";
-        jdbcTemplate.update(sql, filmId, userId);
+        String sql = "INSERT INTO likes (film_id, user_id) VALUES (:film_id, :user_id)";
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("film_id", filmId)
+                .addValue("user_id", userId);
+        jdbcTemplate.update(sql, params);
     }
 
     @Override
     public void removeLike(int filmId, int userId) {
-        String sql = "DELETE FROM likes WHERE film_id = ? AND user_id = ?";
-        jdbcTemplate.update(sql, filmId, userId);
+        String sql = "DELETE FROM likes WHERE film_id = :film_id AND user_id = :user_id";
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("film_id", filmId)
+                .addValue("user_id", userId);
+        jdbcTemplate.update(sql, params);
     }
 
     private void updateFilmGenres(Film film) {
-        String sql = "INSERT INTO film_genre (film_id, genre_id) VALUES (?, ?)";
+        String sql = "INSERT INTO film_genre (film_id, genre_id) VALUES (:film_id, :genre_id)";
 
         for (Genre genre : film.getGenres()) {
-            jdbcTemplate.update(sql, film.getId(), genre.getId());
+            MapSqlParameterSource params = new MapSqlParameterSource()
+                    .addValue("film_id", film.getId())
+                    .addValue("genre_id", genre.getId());
+            jdbcTemplate.update(sql, params);
         }
     }
 
     private void loadFilmGenres(Film film) {
-        String sql = "SELECT genre_id FROM film_genre WHERE film_id = ?";
-        List<Integer> genresId = jdbcTemplate.queryForList(sql, Integer.class, film.getId());
+        String sql = "SELECT genre_id FROM film_genre WHERE film_id = :film_id";
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("film_id", film.getId());
+        List<Integer> genresId = jdbcTemplate.queryForList(sql, params, Integer.class);
         Set<Genre> genres = genresId.stream()
                 .map(Genre::new)
                 .collect(Collectors.toSet());
@@ -166,8 +184,11 @@ public class FilmDbStorage implements FilmStorage {
     }
 
     private void loadFilmLikes(Film film) {
-        String sql = "SELECT user_id FROM likes WHERE film_id = ?";
-        List<Integer> likes = jdbcTemplate.queryForList(sql, Integer.class, film.getId());
+        String sql = "SELECT user_id FROM likes WHERE film_id = :film_id";
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("film_id", film.getId());
+        List<Integer> likes = jdbcTemplate.queryForList(sql, params, Integer.class);
         film.setLikes(new HashSet<>(likes));
+
     }
 }
